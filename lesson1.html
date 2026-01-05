@@ -1,0 +1,675 @@
+import React, { useState, useEffect } from 'react';
+import { Volume2, Star, RefreshCw, Trophy, Music, BookOpen, Gamepad2, CheckCircle, HelpCircle, ChevronRight, Filter, Shuffle } from 'lucide-react';
+
+// --- Data & Assets ---
+const lessonData = {
+  a_begin: [
+    { id: 'a1', word: 'ant', icon: '🐜', sentence: 'The ant is small.' },
+    { id: 'a2', word: 'apple', icon: '🍎', sentence: 'I like the red apple.' },
+    { id: 'a3', word: 'ax', icon: '🪓', sentence: 'Use the ax carefully.' },
+    { id: 'a4', word: 'add', icon: '➕', sentence: 'Can you add the numbers?' },
+    { id: 'a5', word: 'alligator', icon: '🐊', sentence: 'The alligator is green.' },
+    { id: 'a6', word: 'ambulance', icon: '🚑', sentence: 'The ambulance goes fast.' },
+    { id: 'a7', word: 'arrow', icon: '🏹', sentence: 'Follow the arrow.' },
+    { id: 'a8', word: 'astronaut', icon: '👩‍🚀', sentence: 'The astronaut goes to space.' },
+  ],
+  a_middle: [
+    { id: 'am1', word: 'cat', icon: '🐱', sentence: 'The cat says meow.' },
+    { id: 'am2', word: 'flag', icon: '🚩', sentence: 'Look at the flag.' },
+    { id: 'am3', word: 'crab', icon: '🦀', sentence: 'The crab walks sideways.' },
+    { id: 'am4', word: 'hat', icon: '👒', sentence: 'Put on your hat.' },
+    { id: 'am5', word: 'bat', icon: '🦇', sentence: 'The bat flies at night.' },
+    { id: 'am6', word: 'map', icon: '🗺️', sentence: 'Read the map.' },
+    { id: 'am7', word: 'pan', icon: '🍳', sentence: 'Cook in the pan.' },
+    { id: 'am8', word: 'fan', icon: '🪭', sentence: 'The fan keeps us cool.' },
+  ],
+  b_begin: [
+    { id: 'b1', word: 'box', icon: '📦', sentence: 'Open the box.' },
+    { id: 'b2', word: 'bus', icon: '🚌', sentence: 'The bus is yellow.' },
+    { id: 'b3', word: 'ball', icon: '⚽', sentence: 'Kick the ball.' },
+    { id: 'b4', word: 'bear', icon: '🐻', sentence: 'The bear is big.' },
+    { id: 'b5', word: 'bird', icon: '🐦', sentence: 'The bird sings.' },
+    { id: 'b6', word: 'book', icon: '📖', sentence: 'Read a book.' },
+    { id: 'b7', word: 'bed', icon: '🛏️', sentence: 'Sleep in the bed.' },
+    { id: 'b8', word: 'banana', icon: '🍌', sentence: 'Bananas are yummy.' },
+  ],
+  b_end: [
+    { id: 'be1', word: 'web', icon: '🕸️', sentence: 'The spider made a web.' },
+    { id: 'be2', word: 'sub', icon: '🥪', sentence: 'I ate a sub sandwich.' }, 
+    { id: 'be3', word: 'rib', icon: '🍖', sentence: 'I like bbq rib.' },
+    { id: 'be4', word: 'crib', icon: '🛏️', sentence: 'The baby is in the crib.' },
+    { id: 'be5', word: 'tub', icon: '🛁', sentence: 'Wash in the tub.' },
+    { id: 'be6', word: 'bib', icon: '👶', sentence: 'Baby wears a bib.' },
+    { id: 'be7', word: 'cub', icon: '🦁', sentence: 'The lion cub is cute.' },
+    { id: 'be8', word: 'cab', icon: '🚕', sentence: 'Take a yellow cab.' },
+  ],
+};
+
+const allWords = [
+  ...lessonData.a_begin, ...lessonData.a_middle,
+  ...lessonData.b_begin, ...lessonData.b_end
+];
+
+const categories = [
+    { id: 'all', label: 'Mix All 🎲', color: 'bg-gray-800' },
+    { id: 'a_begin', label: 'Start A', color: 'bg-red-500' },
+    { id: 'a_middle', label: 'Middle a', color: 'bg-orange-500' },
+    { id: 'b_begin', label: 'Start B', color: 'bg-blue-500' },
+    { id: 'b_end', label: 'End b', color: 'bg-indigo-500' },
+];
+
+// --- Helper Functions ---
+const speak = (text) => {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-US';
+  utterance.rate = 0.9; 
+  window.speechSynthesis.speak(utterance);
+};
+
+// --- Reusable Components ---
+const FilterBar = ({ current, onSelect }) => (
+  <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+    {categories.map(cat => (
+      <button
+        key={cat.id}
+        onClick={() => onSelect(cat.id)}
+        className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
+          current === cat.id 
+            ? `${cat.color} text-white shadow-md transform scale-105` 
+            : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+        }`}
+      >
+        {cat.label}
+      </button>
+    ))}
+  </div>
+);
+
+const WordCard = ({ item }) => {
+  return (
+    <div 
+      onClick={() => speak(item.word)}
+      className="bg-white rounded-2xl shadow-sm hover:shadow-xl p-6 flex flex-col items-center justify-center cursor-pointer transform transition-all hover:-translate-y-1 border border-gray-100 hover:border-blue-200 group"
+    >
+      <div className="text-7xl mb-4 group-hover:scale-110 transition-transform duration-300">{item.icon}</div>
+      <h3 className="text-3xl font-bold text-gray-800 mb-2">{item.word}</h3>
+      <p className="text-gray-400 text-sm mb-4 italic text-center">"{item.sentence}"</p>
+      <div className="flex items-center text-blue-500 font-medium px-4 py-2 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-colors">
+        <Volume2 size={18} className="mr-2" /> Listen
+      </div>
+    </div>
+  );
+};
+
+// --- Games ---
+
+const MemoryGame = () => {
+  const [cards, setCards] = useState([]);
+  const [flipped, setFlipped] = useState([]);
+  const [solved, setSolved] = useState([]);
+  const [disabled, setDisabled] = useState(false);
+  const [filter, setFilter] = useState('all');
+
+  const initializeGame = (selectedFilter = filter) => {
+    let gameWords = [];
+    
+    if (selectedFilter === 'all') {
+      gameWords = [...allWords].sort(() => 0.5 - Math.random()).slice(0, 8);
+    } else {
+      gameWords = [...lessonData[selectedFilter]];
+    }
+
+    const deck = [...gameWords, ...gameWords]
+      .sort(() => 0.5 - Math.random())
+      .map((item, index) => ({ ...item, uniqueId: index }));
+    
+    setCards(deck);
+    setFlipped([]);
+    setSolved([]);
+  };
+
+  useEffect(() => {
+    initializeGame();
+  }, [filter]);
+
+  const handleClick = (id) => {
+    if (disabled || solved.includes(id) || flipped.includes(id)) return;
+
+    if (flipped.length === 0) {
+      setFlipped([id]);
+    } else {
+      setFlipped([flipped[0], id]);
+      setDisabled(true);
+      const firstCard = cards.find(c => c.uniqueId === flipped[0]);
+      const secondCard = cards.find(c => c.uniqueId === id);
+
+      if (firstCard.id === secondCard.id) {
+        setSolved([...solved, flipped[0], id]);
+        setFlipped([]);
+        setDisabled(false);
+      } else {
+        setTimeout(() => {
+          setFlipped([]);
+          setDisabled(false);
+        }, 1000);
+      }
+    }
+  };
+
+  return (
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+           <h2 className="text-3xl font-bold text-gray-800 flex items-center">
+             <span className="bg-purple-100 p-2 rounded-lg mr-3 text-2xl">🧠</span> 
+             Memory Match
+           </h2>
+        </div>
+        <button onClick={() => initializeGame()} className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 flex items-center shadow-md">
+          <RefreshCw size={18} className="mr-2" /> Restart
+        </button>
+      </div>
+
+      <FilterBar current={filter} onSelect={setFilter} />
+
+      <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6">
+        {cards.map((card, index) => (
+          <div
+            key={card.uniqueId}
+            onClick={() => handleClick(card.uniqueId)}
+            className={`aspect-square rounded-2xl flex items-center justify-center text-5xl cursor-pointer transition-all duration-500 transform shadow-md ${
+              flipped.includes(card.uniqueId) || solved.includes(card.uniqueId)
+                ? 'bg-white rotate-y-180 ring-4 ring-purple-400'
+                : 'bg-gradient-to-br from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-purple-200'
+            }`}
+          >
+            {(flipped.includes(card.uniqueId) || solved.includes(card.uniqueId)) ? (
+              <div className="flex flex-col items-center animate-fade-in">
+                <span>{card.icon}</span>
+                <span className="text-base font-bold mt-2 text-gray-700">{card.word}</span>
+              </div>
+            ) : (
+              <span className="text-3xl font-bold opacity-80">{index + 1}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SpellingGame = () => {
+  const [currentWord, setCurrentWord] = useState(null);
+  const [guessed, setGuessed] = useState([]);
+  const [lives, setLives] = useState(5);
+  const [streak, setStreak] = useState(0);
+  const [filter, setFilter] = useState('all');
+
+  const startNewRound = (selectedFilter = filter) => {
+    let pool = selectedFilter === 'all' ? allWords : lessonData[selectedFilter];
+    const random = pool[Math.floor(Math.random() * pool.length)];
+    
+    setCurrentWord(random);
+    setGuessed([]);
+    setLives(5);
+  };
+
+  useEffect(() => {
+    startNewRound(filter);
+    setStreak(0);
+  }, [filter]);
+
+  const handleGuess = (letter) => {
+    if (guessed.includes(letter) || lives <= 0) return;
+    setGuessed([...guessed, letter]);
+    
+    if (!currentWord.word.includes(letter)) {
+      setLives(lives - 1);
+    } else {
+      const isWin = currentWord.word.split('').every(char => [...guessed, letter].includes(char));
+      if (isWin) {
+        setStreak(streak + 1);
+        setTimeout(() => startNewRound(), 1500);
+      }
+    }
+  };
+
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+
+  if (!currentWord) return <div>Loading...</div>;
+  const isLost = lives <= 0;
+
+  return (
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
+      <div className="text-center mb-6 w-full">
+        <h2 className="text-3xl font-bold text-gray-800 flex items-center justify-center mb-4">
+            <span className="bg-orange-100 p-2 rounded-lg mr-3 text-2xl">🐝</span> 
+            Spelling Bee
+        </h2>
+        <FilterBar current={filter} onSelect={setFilter} />
+      </div>
+      
+      <div className="flex flex-col md:flex-row gap-8 w-full">
+        <div className="flex-1 bg-white rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center border border-orange-100">
+          <div className="text-9xl mb-8 animate-bounce-slow">{currentWord.icon}</div>
+          
+          <div className="flex justify-center space-x-3 mb-8 flex-wrap">
+            {currentWord.word.split('').map((char, idx) => (
+              <span key={idx} className="w-14 h-16 border-b-4 border-orange-400 flex items-center justify-center text-4xl font-bold text-gray-800 transition-all">
+                {guessed.includes(char) || isLost ? char : ''}
+              </span>
+            ))}
+          </div>
+
+          {isLost && (
+             <div className="animate-fade-in text-center">
+                <p className="text-red-500 font-bold mb-4 text-lg">The word was "{currentWord.word}"</p>
+                <button onClick={() => startNewRound()} className="bg-orange-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-orange-600 transition-colors">
+                    Try Next Word
+                </button>
+             </div>
+          )}
+        </div>
+
+        <div className="flex-1 flex flex-col">
+            <div className="bg-orange-50 rounded-2xl p-6 mb-6 flex justify-between items-center shadow-inner">
+                <div className="flex items-center text-orange-700 font-bold text-xl">
+                    <Star className="mr-2 fill-current" /> Streak: {streak}
+                </div>
+                <div className="flex items-center text-red-500 font-bold text-xl">
+                    <span className="mr-2">Lives:</span>
+                    {Array(lives).fill(0).map((_, i) => <span key={i}>❤️</span>)}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-6 sm:grid-cols-7 gap-2">
+                {alphabet.map(letter => (
+                <button
+                    key={letter}
+                    onClick={() => handleGuess(letter)}
+                    disabled={guessed.includes(letter) || isLost}
+                    className={`aspect-square rounded-xl font-bold uppercase text-lg transition-all transform hover:scale-105 ${
+                    guessed.includes(letter)
+                        ? currentWord.word.includes(letter) ? 'bg-green-500 text-white shadow-none' : 'bg-gray-200 text-gray-400 shadow-none'
+                        : 'bg-white text-gray-700 shadow-md border-b-4 border-gray-200 hover:border-orange-200 hover:bg-orange-50'
+                    }`}
+                >
+                    {letter}
+                </button>
+                ))}
+            </div>
+             <button 
+                onClick={() => speak(currentWord.word)}
+                className="mt-6 self-center text-gray-500 hover:text-orange-500 flex items-center font-medium transition-colors"
+            >
+                <Volume2 size={20} className="mr-2" /> Listen Again
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WordScramble = () => {
+  const [currentWord, setCurrentWord] = useState(null);
+  const [scrambledLetters, setScrambledLetters] = useState([]);
+  const [answerLetters, setAnswerLetters] = useState([]);
+  const [streak, setStreak] = useState(0);
+  const [filter, setFilter] = useState('all');
+  const [isCorrect, setIsCorrect] = useState(false);
+
+  const startNewRound = (selectedFilter = filter) => {
+    let pool = selectedFilter === 'all' ? allWords : lessonData[selectedFilter];
+    const random = pool[Math.floor(Math.random() * pool.length)];
+    
+    // Create letter objects with unique IDs to handle duplicate letters (e.g., 'apple' has two 'p's)
+    const letters = random.word.split('').map((char, index) => ({
+      id: `${char}-${index}`,
+      char: char
+    }));
+    
+    // Shuffle
+    const shuffled = [...letters].sort(() => 0.5 - Math.random());
+    
+    setCurrentWord(random);
+    setScrambledLetters(shuffled);
+    setAnswerLetters(Array(random.word.length).fill(null));
+    setIsCorrect(false);
+  };
+
+  useEffect(() => {
+    startNewRound(filter);
+    setStreak(0);
+  }, [filter]);
+
+  const handleScrambleClick = (letterObj) => {
+    if (isCorrect) return;
+
+    // Find first empty slot
+    const firstEmptyIndex = answerLetters.findIndex(l => l === null);
+    if (firstEmptyIndex === -1) return; // No slots left
+
+    // Move from scrambled to answer
+    const newAnswer = [...answerLetters];
+    newAnswer[firstEmptyIndex] = letterObj;
+    setAnswerLetters(newAnswer);
+
+    // Remove from scrambled UI (filter out by ID)
+    setScrambledLetters(scrambledLetters.filter(l => l.id !== letterObj.id));
+
+    // Check correctness immediately if filled
+    if (firstEmptyIndex === answerLetters.length - 1) {
+      const attemptedWord = newAnswer.map(l => l.char).join('');
+      if (attemptedWord === currentWord.word) {
+        setIsCorrect(true);
+        setStreak(streak + 1);
+        setTimeout(() => startNewRound(), 1500);
+      }
+    }
+  };
+
+  const handleAnswerClick = (letterObj, index) => {
+    if (isCorrect || !letterObj) return;
+
+    // Move back to scrambled
+    setScrambledLetters([...scrambledLetters, letterObj]);
+
+    // Remove from answer slot
+    const newAnswer = [...answerLetters];
+    newAnswer[index] = null;
+    setAnswerLetters(newAnswer);
+  };
+
+  if (!currentWord) return <div>Loading...</div>;
+
+  return (
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
+      <div className="text-center mb-6 w-full">
+        <h2 className="text-3xl font-bold text-gray-800 flex items-center justify-center mb-4">
+            <span className="bg-pink-100 p-2 rounded-lg mr-3 text-2xl">🔀</span> 
+            Word Scramble
+        </h2>
+        <FilterBar current={filter} onSelect={setFilter} />
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-xl p-8 w-full border border-pink-100 flex flex-col items-center relative overflow-hidden">
+        
+        {/* Streak Badge */}
+        <div className="absolute top-4 right-4 bg-pink-50 px-3 py-1 rounded-full text-pink-600 font-bold flex items-center">
+            <Star size={16} className="mr-1 fill-current" /> {streak}
+        </div>
+
+        <div className="text-8xl mb-8 animate-bounce-slow">{currentWord.icon}</div>
+
+        {/* Answer Slots */}
+        <div className="flex justify-center gap-2 mb-10 flex-wrap">
+          {answerLetters.map((letter, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleAnswerClick(letter, idx)}
+              className={`w-12 h-14 sm:w-16 sm:h-20 border-b-4 rounded-lg flex items-center justify-center text-3xl font-bold transition-all ${
+                letter 
+                  ? isCorrect ? 'bg-green-100 border-green-400 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-800 hover:bg-red-50 cursor-pointer'
+                  : 'bg-transparent border-gray-200'
+              }`}
+            >
+              {letter ? letter.char : ''}
+            </button>
+          ))}
+        </div>
+
+        {/* Scrambled Pool */}
+        <div className="flex justify-center gap-3 flex-wrap min-h-[5rem]">
+          {scrambledLetters.map((letter) => (
+            <button
+              key={letter.id}
+              onClick={() => handleScrambleClick(letter)}
+              className="w-12 h-12 sm:w-16 sm:h-16 bg-pink-500 text-white rounded-xl font-bold text-2xl shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 transition-all hover:bg-pink-600"
+            >
+              {letter.char}
+            </button>
+          ))}
+        </div>
+
+        {isCorrect && (
+            <div className="mt-6 text-green-600 font-bold text-xl animate-pulse">
+                Correct! It's {currentWord.word}!
+            </div>
+        )}
+      </div>
+
+       <button 
+        onClick={() => startNewRound()}
+        className="mt-8 text-gray-400 hover:text-gray-600 font-medium flex items-center"
+       >
+        <RefreshCw size={16} className="mr-2"/> Skip Word
+       </button>
+    </div>
+  );
+};
+
+const ListeningQuiz = () => {
+  const [target, setTarget] = useState(null);
+  const [options, setOptions] = useState([]);
+  const [status, setStatus] = useState('playing'); 
+  const [filter, setFilter] = useState('all');
+
+  const setupQuestion = (selectedFilter = filter) => {
+    setStatus('playing');
+    const pool = selectedFilter === 'all' ? allWords : lessonData[selectedFilter];
+    
+    const correct = pool[Math.floor(Math.random() * pool.length)];
+    setTarget(correct);
+    
+    const distractorPool = allWords.filter(w => w.id !== correct.id);
+    const distractors = distractorPool.sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    const choices = [correct, ...distractors].sort(() => 0.5 - Math.random());
+    setOptions(choices);
+  };
+
+  useEffect(() => {
+    setupQuestion(filter);
+  }, [filter]);
+
+  const handleSelect = (item) => {
+    if (status !== 'playing') return;
+
+    if (item.id === target.id) {
+      setStatus('correct');
+      setTimeout(() => setupQuestion(), 1500);
+    } else {
+      setStatus('wrong');
+      setTimeout(() => setStatus('playing'), 1000);
+    }
+  };
+
+  if (!target) return null;
+
+  return (
+    <div className="w-full max-w-4xl mx-auto">
+        <div className="text-center mb-6 w-full">
+            <h2 className="text-3xl font-bold text-gray-800 flex items-center justify-center mb-4">
+                <span className="bg-green-100 p-2 rounded-lg mr-3 text-2xl">👂</span> 
+                Listening Ear
+            </h2>
+            <FilterBar current={filter} onSelect={setFilter} />
+        </div>
+
+      <div className="flex flex-col md:flex-row gap-10 items-center">
+        {/* Listen Button Section */}
+        <div className="flex flex-col items-center justify-center md:w-1/3">
+            <button 
+                onClick={() => speak(target.word)}
+                className="w-48 h-48 bg-green-50 rounded-full flex flex-col items-center justify-center text-green-600 shadow-lg hover:shadow-green-200 hover:bg-green-100 transition-all transform hover:scale-105 border-4 border-green-100"
+            >
+                <Volume2 size={64} className="animate-pulse" />
+                <span className="font-bold mt-4 text-xl">Click to Listen</span>
+            </button>
+        </div>
+
+        {/* Options Grid */}
+        <div className="grid grid-cols-2 gap-6 w-full md:w-2/3">
+            {options.map((option) => (
+            <button
+                key={option.id}
+                onClick={() => handleSelect(option)}
+                className={`p-8 rounded-3xl text-center shadow-sm transition-all border-2 relative overflow-hidden group ${
+                status === 'correct' && option.id === target.id
+                    ? 'bg-green-500 text-white border-green-500 scale-105 ring-4 ring-green-200'
+                    : status === 'wrong' && option.id !== target.id 
+                    ? 'bg-gray-50 opacity-50 cursor-not-allowed' 
+                    : 'bg-white hover:bg-green-50 border-gray-100 hover:border-green-200 hover:shadow-md'
+                }`}
+            >
+                <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">{option.icon}</div>
+                <div className="font-bold text-xl">{status !== 'playing' ? option.word : '???'}</div>
+                
+                {status === 'correct' && option.id === target.id && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-green-500 bg-opacity-90 text-white font-bold text-2xl animate-fade-in">
+                        <CheckCircle size={48} className="mb-2" />
+                    </div>
+                )}
+            </button>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// --- Main Layout & App Shell ---
+export default function App() {
+  const [activeTab, setActiveTab] = useState('learn'); 
+  const [learnSection, setLearnSection] = useState('a_begin'); 
+
+  // Navigation Items
+  const navItems = [
+    { id: 'learn', label: 'Learn Words', icon: <BookOpen size={20} />, color: 'text-blue-600' },
+    { id: 'memory', label: 'Memory Game', icon: <Gamepad2 size={20} />, color: 'text-purple-600' },
+    { id: 'scramble', label: 'Word Scramble', icon: <Shuffle size={20} />, color: 'text-pink-600' },
+    { id: 'spell', label: 'Spelling Bee', icon: <Trophy size={20} />, color: 'text-orange-600' },
+    { id: 'quiz', label: 'Listening Quiz', icon: <Music size={20} />, color: 'text-green-600' },
+  ];
+
+  const renderContent = () => {
+    switch(activeTab) {
+        case 'learn':
+            return (
+                <div className="animate-fade-in-up">
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-blue-600 rounded-3xl p-8 text-white shadow-lg shadow-blue-200">
+                        <div>
+                            <h2 className="text-3xl font-bold mb-2">Lesson 1: Aa & Bb</h2>
+                            <p className="opacity-90">Let's learn the sounds of A and B!</p>
+                        </div>
+                        <div className="mt-4 md:mt-0 flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
+                            {[
+                            { id: 'a_begin', label: 'Start A', bg: 'bg-red-400' },
+                            { id: 'a_middle', label: 'Middle a', bg: 'bg-orange-400' },
+                            { id: 'b_begin', label: 'Start B', bg: 'bg-blue-400' },
+                            { id: 'b_end', label: 'End b', bg: 'bg-indigo-400' },
+                            ].map(btn => (
+                            <button
+                                key={btn.id}
+                                onClick={() => { setLearnSection(btn.id); }}
+                                className={`px-5 py-2 rounded-full font-bold text-sm transition-all whitespace-nowrap ${
+                                learnSection === btn.id 
+                                    ? 'bg-white text-blue-800 shadow-md transform scale-105' 
+                                    : 'bg-white/20 hover:bg-white/30 text-white'
+                                }`}
+                            >
+                                {btn.label}
+                            </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {lessonData[learnSection].map(item => (
+                            <WordCard key={item.id} item={item} />
+                        ))}
+                    </div>
+                </div>
+            );
+        case 'memory': return <div className="animate-fade-in-up"><MemoryGame /></div>;
+        case 'scramble': return <div className="animate-fade-in-up"><WordScramble /></div>;
+        case 'spell': return <div className="animate-fade-in-up"><SpellingGame /></div>;
+        case 'quiz': return <div className="animate-fade-in-up"><ListeningQuiz /></div>;
+        default: return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col md:flex-row">
+      
+      {/* Sidebar Navigation (Desktop) */}
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-screen sticky top-0 p-6 z-20">
+        <div className="flex items-center gap-3 mb-10 px-2">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white text-2xl shadow-lg shadow-blue-200">🌺</div>
+            <span className="text-xl font-black text-gray-800 tracking-tight">Ohana<br/><span className="text-blue-600">Phonics</span></span>
+        </div>
+
+        <nav className="flex-1 space-y-2">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-2">Activities</p>
+            {navItems.map(item => (
+                <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all font-medium ${
+                        activeTab === item.id 
+                        ? 'bg-blue-50 text-blue-700 shadow-sm' 
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                >
+                    <span className={activeTab === item.id ? 'text-blue-600' : 'text-gray-400'}>{item.icon}</span>
+                    <span>{item.label}</span>
+                    {activeTab === item.id && <ChevronRight size={16} className="ml-auto" />}
+                </button>
+            ))}
+        </nav>
+
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 text-white text-center mt-auto">
+            <p className="font-bold text-lg mb-1">Good Job!</p>
+            <p className="text-indigo-100 text-sm mb-3">Keep practicing everyday.</p>
+            <div className="w-full bg-white/20 rounded-full h-2">
+                <div className="bg-white w-3/4 h-2 rounded-full"></div>
+            </div>
+        </div>
+      </aside>
+
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white p-4 sticky top-0 z-30 shadow-sm flex justify-between items-center">
+         <div className="flex items-center gap-2">
+            <span className="text-2xl">🌺</span>
+            <span className="font-bold text-lg">Ohana Phonics</span>
+         </div>
+      </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 md:p-8 lg:p-12 overflow-y-auto max-w-7xl mx-auto w-full">
+        {/* Mobile Navigation Tabs (visible only on mobile) */}
+        <div className="md:hidden flex overflow-x-auto gap-2 mb-6 pb-2 scrollbar-hide">
+            {navItems.map(item => (
+                <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold border transition-colors ${
+                        activeTab === item.id
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-600 border-gray-200'
+                    }`}
+                >
+                    {item.label}
+                </button>
+            ))}
+        </div>
+
+        {renderContent()}
+
+      </main>
+    </div>
+  );
+}
