@@ -213,12 +213,45 @@
         ];
 
         // --- Helper Functions ---
+        // Force load voices
+        let voices = [];
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            const loadVoices = () => {
+                voices = window.speechSynthesis.getVoices();
+            };
+            loadVoices();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+        }
+
         const speak = (text) => {
           if (!window.speechSynthesis) return;
+          
+          // Cancel any ongoing speech to prevent overlapping
           window.speechSynthesis.cancel();
+
           const utterance = new SpeechSynthesisUtterance(text);
+          
+          // Explicitly try to find an English voice
+          if (voices.length === 0) {
+              voices = window.speechSynthesis.getVoices();
+          }
+          
+          const englishVoice = voices.find(voice => 
+              voice.lang === 'en-US' || 
+              voice.lang.includes('en-US') || 
+              voice.name.includes('English')
+          );
+
+          if (englishVoice) {
+              utterance.voice = englishVoice;
+          }
+
           utterance.lang = 'en-US';
-          utterance.rate = 0.9; 
+          utterance.rate = 0.8; // Slightly slower for better clarity
+          utterance.pitch = 1.1; // Slightly higher pitch often sounds friendlier
+          
           window.speechSynthesis.speak(utterance);
         };
 
