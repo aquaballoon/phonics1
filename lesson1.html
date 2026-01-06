@@ -213,11 +213,12 @@
         ];
 
         // --- Helper Functions ---
-        // Force load voices
-        let voices = [];
+        
+        // --- 1. Browser Speech Fallback (Existing) ---
+        let cachedVoices = [];
         if (typeof window !== 'undefined' && window.speechSynthesis) {
             const loadVoices = () => {
-                voices = window.speechSynthesis.getVoices();
+                cachedVoices = window.speechSynthesis.getVoices();
             };
             loadVoices();
             if (window.speechSynthesis.onvoiceschanged !== undefined) {
@@ -225,35 +226,69 @@
             }
         }
 
-        const speak = (text) => {
-          if (!window.speechSynthesis) return;
-          
-          // Cancel any ongoing speech to prevent overlapping
-          window.speechSynthesis.cancel();
+        const fallbackBrowserSpeak = (text) => {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            if (window.speechSynthesis.paused) window.speechSynthesis.resume();
 
-          const utterance = new SpeechSynthesisUtterance(text);
-          
-          // Explicitly try to find an English voice
-          if (voices.length === 0) {
-              voices = window.speechSynthesis.getVoices();
-          }
-          
-          const englishVoice = voices.find(voice => 
-              voice.lang === 'en-US' || 
-              voice.lang.includes('en-US') || 
-              voice.name.includes('English')
-          );
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            if (cachedVoices.length === 0) cachedVoices = window.speechSynthesis.getVoices();
+            const voice = cachedVoices.find(v => v.lang === 'en-US') 
+                       || cachedVoices.find(v => v.lang.startsWith('en'))
+                       || null;
 
-          if (englishVoice) {
-              utterance.voice = englishVoice;
-          }
-
-          utterance.lang = 'en-US';
-          utterance.rate = 0.8; // Slightly slower for better clarity
-          utterance.pitch = 1.1; // Slightly higher pitch often sounds friendlier
-          
-          window.speechSynthesis.speak(utterance);
+            if (voice) utterance.voice = voice;
+            utterance.lang = 'en-US'; 
+            utterance.rate = 0.8; 
+            
+            // Prevent GC
+            window.speechSynthesisUtterance = utterance;
+            utterance.onend = () => { window.speechSynthesisUtterance = null; };
+            
+            window.speechSynthesis.speak(utterance);
         };
+
+        // --- 2. Main Speak Function (Google TTS + Fallback) ---
+        let currentAudio = null;
+
+        const speak = (text) => {
+            // Stop any playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            // Stop any browser speech
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+
+            // Attempt to use Google Translate TTS for natural voice
+            // Using 'client=tw-ob' is a common public endpoint hack.
+            const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(text)}`;
+            
+            const audio = new Audio(url);
+            currentAudio = audio;
+
+            const playPromise = audio.play();
+
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        // Play successful
+                    })
+                    .catch(error => {
+                        console.warn("Google TTS failed (likely network or blocking), falling back to browser voice.", error);
+                        fallbackBrowserSpeak(text);
+                    });
+            }
+
+            audio.onerror = () => {
+                console.warn("Google TTS audio error, falling back.");
+                fallbackBrowserSpeak(text);
+            };
+        };
+
 
         // --- Components ---
         const FilterBar = ({ current, onSelect }) => (
